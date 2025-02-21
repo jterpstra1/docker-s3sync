@@ -12,7 +12,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
     ./aws/install && \
     rm -rf awscliv2.zip aws
 
-RUN mkdir -p /data && \ 
+RUN mkdir -p /data && \
   mkdir -p /root/.aws
 
 ADD run.sh /
