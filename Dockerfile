@@ -5,12 +5,12 @@ ENV DEBIAN_FRONTEND="noninteractive" HOME="/root" LC_ALL="C.UTF-8" LANG="en_US.U
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      cron python3 python3-magic python3-pip && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN pip3 install setuptools wheel 
-RUN pip3 install awscliv2 && \
-  rm -rf /tmp/pip_build_root/
+      cron 
+# Install AWS CLI v2
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip aws
 
 RUN mkdir -p /data && \
   mkdir -p /root/.aws
