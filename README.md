@@ -17,7 +17,7 @@ Env var | Description | Example
 `SECRET_KEY` | your AWS secret key | `ubuUbuBubUuuBbuveubviurvurud6rDU3qpU`
 `REGION` | your bucket's region | `eu-west-1`
 `S3PATH` | your S3 bucket and path | `s3://my-nice-bucket`
-`S3SYNCPARAMS` | [custom parameters to aws s3 sync](http://docs.aws.amazon.com/cli/latest/reference/s3/sync.html) | `--delete --storage-class GLACIER_IR`
+`S3SYNCPARAMS` | [custom parameters to aws s3 sync](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/s3/sync.html) | `--delete --storage-class GLACIER_IR`
 
 ### Cron schedule
 Files are by default backed up once every hour. You can customize this behavior
