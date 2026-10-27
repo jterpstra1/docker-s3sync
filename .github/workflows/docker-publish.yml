@@ -9,8 +9,11 @@ on:
 
 jobs:
   publish_image:
-    name: Build, and push to Docker Hub on tags
+    name: Build, and push to GHCR on tags
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Check out the repo
         uses: actions/checkout@v7
@@ -21,18 +24,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: jvdgt/docker-s3sync
+          images: ghcr.io/jterpstra1/docker-s3sync
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}

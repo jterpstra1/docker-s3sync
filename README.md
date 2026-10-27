@@ -4,6 +4,8 @@ S3sync is a Docker container which backs up one or more folders to S3 using the 
 
 ## Usage
 
+The image is published to GitHub Container Registry as `ghcr.io/jterpstra1/docker-s3sync`, for linux/amd64 and linux/arm64. Older versions up to 0.0.4 remain on Docker Hub as `jvdgt/docker-s3sync` but are no longer updated.
+
 This container makes use of the `aws s3 sync` command. 
 
 To tell s3sync what to back up,  mount your desired volumes under the `/data` directory.
@@ -36,7 +38,7 @@ docker run \
 -e "SECRET_KEY=AWS_SECRET_KEY_HERE" \
 -e "REGION=eu-central-1" \
 -e "S3PATH=s3://BUCKET_NAME_HERE" \
-jvdgt/docker-s3sync
+ghcr.io/jterpstra1/docker-s3sync
 ```
 
 ### Advanced run
@@ -54,7 +56,7 @@ docker run \
 -e "S3PATH=s3://BUCKET_NAME_HERE/this_prefix" \
 -e "S3SYNCPARAMS=--delete --storage-class GLACIER_IR" \
 -e "CRON_SCHEDULE=* 0 * * *" \
-jvdgt/docker-s3sync
+ghcr.io/jterpstra1/docker-s3sync
 ```
 
 <!-- ## Unraid

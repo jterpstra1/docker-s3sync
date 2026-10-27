@@ -10,6 +10,6 @@
     }
   ],
   "prBodyNotes": [
-    "**Merging does not publish an image.** Push a new `v*` tag afterwards to build and push to Docker Hub."
+    "**Merging does not publish an image.** Push a new `v*` tag afterwards to build and push to GHCR."
   ]
 }
