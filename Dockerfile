@@ -1,22 +1,33 @@
-FROM debian:latest
-LABEL Jurre van der Gaag - Terpstra <jurre@terpstra.tech>
+FROM debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
+LABEL maintainer="Jurre van der Gaag - Terpstra <jurre@terpstra.tech>"
 
-ENV DEBIAN_FRONTEND="noninteractive" HOME="/root" LC_ALL="C.UTF-8" LANG="en_US.UTF-8" LANGUAGE="en_US.UTF-8"
+# renovate: datasource=github-tags depName=aws/aws-cli
+ARG AWS_CLI_VERSION=2.38.6
+# Set by buildx per platform: amd64 or arm64
+ARG TARGETARCH
+
+ENV DEBIAN_FRONTEND="noninteractive" HOME="/root" LC_ALL="C.UTF-8" LANG="C.UTF-8"
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      cron curl unzip ca-certificates
-# Install AWS CLI v2
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf awscliv2.zip aws
+    apt-get install -y --no-install-recommends cron curl unzip ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /data && \
-  mkdir -p /root/.aws
+# Install AWS CLI v2 for the platform being built
+RUN case "${TARGETARCH:-amd64}" in \
+      amd64) arch=x86_64 ;; \
+      arm64) arch=aarch64 ;; \
+      *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac && \
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${arch}-${AWS_CLI_VERSION}.zip" -o /tmp/awscliv2.zip && \
+    unzip -q /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/awscliv2.zip /tmp/aws && \
+    aws --version
 
-ADD run.sh /
+RUN mkdir -p /data /root/.aws
 
+COPY run.sh /run.sh
 RUN chmod +x /run.sh
+
 ENTRYPOINT ["/run.sh"]
 CMD ["start"]

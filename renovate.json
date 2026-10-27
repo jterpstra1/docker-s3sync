@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "customManagers:dockerfileVersions"],
+  "timezone": "Europe/Brussels",
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "matchPackageNames": ["aws/aws-cli"],
+      "allowedVersions": "/^2\\./"
+    }
+  ],
+  "prBodyNotes": [
+    "**Merging does not publish an image.** Push a new `v*` tag afterwards to build and push to Docker Hub."
+  ]
+}
