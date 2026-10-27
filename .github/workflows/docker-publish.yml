@@ -4,42 +4,49 @@ on:
   push:
     tags:
       - 'v*'
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   publish_image:
-    name: Push Docker image to Docker Hub
+    name: Build, and push to GHCR on tags
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.0.0
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.3.0
+        uses: docker/setup-buildx-action@v4
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3.1.0
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5.5.1
+        uses: docker/metadata-action@v6
         with:
-          images: jvdgt/docker-s3sync
+          images: ghcr.io/jterpstra1/docker-s3sync
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5.3.0
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64, linux/arm64
-          push: true
+          platforms: linux/amd64,linux/arm64
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

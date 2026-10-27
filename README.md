@@ -1,61 +1,110 @@
 # s3sync
-## Info
-S3sync is a Docker container which backs up one or more folders to S3 using the AWS CLI v2 tool. 
 
-## Usage
-
-This container makes use of the `aws s3 sync` command. 
-
-To tell s3sync what to back up,  mount your desired volumes under the `/data` directory.
-
-s3sync is configured by setting the following environment variables during the launch of the container.
-
-### Env variables
-Env var | Description | Example
---- | --- | ---
-`ACCESS_KEY` | your AWS access key | `AKIABV38RBV38RBV38B3`
-`SECRET_KEY` | your AWS secret key | `ubuUbuBubUuuBbuveubviurvurud6rDU3qpU`
-`REGION` | your bucket's region | `eu-west-1`
-`S3PATH` | your S3 bucket and path | `s3://my-nice-bucket`
-`S3SYNCPARAMS` | [custom parameters to aws s3 sync](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/s3/sync.html) | `--delete --storage-class GLACIER_IR`
-
-### Cron schedule
-Files are by default backed up once every hour. You can customize this behavior
-using an environment variable which uses the standard CRON notation.
-`CRON_SCHEDULE` is set to `0 * * * *` by default, which means every hour. *I would advise against setting this to a more frequent schedule.*
-
-## Example invocation
-
-### Simple run
-This will sync your `/home/user` local directory every hour to your specified S3 bucket, leaving everything else in the bucket intact.
+A small container that backs up folders to Amazon S3 on a schedule. Mount what you want backed up under `/data`, point it at a bucket, and it runs `aws s3 sync` (AWS CLI v2) from cron.
 
 ```
-docker run \
--v /home/user:/data/user:ro \
--e "ACCESS_KEY=AWS_ACCESS_KEY_HERE" \
--e "SECRET_KEY=AWS_SECRET_KEY_HERE" \
--e "REGION=eu-central-1" \
--e "S3PATH=s3://BUCKET_NAME_HERE" \
-jvdgt/docker-s3sync
+ghcr.io/jterpstra1/docker-s3sync
 ```
 
-### Advanced run
-If you want more customization on the S3 side, you can use the `S3SYNCPARAMS` to input `aws s3 sync` CLI parameters such as `--delete`. You can also specify deeper paths in S3, and a cron schedule.
+Built for `linux/amd64` and `linux/arm64`.
 
-This will sync both the `/home/user` and `/opt/files` local folders to `s3://your-bucket-name/this_prefix/` and **delete everything else** that's *inside that prefix*. Upon sync, the contents of `s3://your-bucket-name/this_prefix/` will only be the two folders [and their files] that you just synced.
+## Quick start
 
-```
-docker run \
--v /home/user:/data/user:ro \
--v /opt/files:/data/files:ro\
--e "ACCESS_KEY=AWS_ACCESS_KEY_HERE" \
--e "SECRET_KEY=AWS_SECRET_KEY_HERE" \
--e "REGION=eu-central-1" \
--e "S3PATH=s3://BUCKET_NAME_HERE/this_prefix" \
--e "S3SYNCPARAMS=--delete --storage-class GLACIER_IR" \
--e "CRON_SCHEDULE=* 0 * * *" \
-jvdgt/docker-s3sync
+Back up `/home/user` to a bucket every hour:
+
+```bash
+docker run -d --name s3sync \
+  -v /home/user:/data/user:ro \
+  -e ACCESS_KEY=AKIA... \
+  -e SECRET_KEY=... \
+  -e REGION=eu-west-1 \
+  -e S3PATH=s3://my-bucket \
+  ghcr.io/jterpstra1/docker-s3sync
 ```
 
-<!-- ## Unraid
-s3sync is available on the Unraid Community Applications. See the [Support Thread](https://forums.unraid.net/topic/106320-support-what-name-s3sync/?tab=comments#comment-979903) for more information, or search for `s3sync` in CA. -->
+Each folder under `/data` ends up as a prefix in the bucket, so `/data/user/notes.txt` becomes `s3://my-bucket/user/notes.txt`. Mount sources read-only (`:ro`); the container only reads them.
+
+## Docker Compose
+
+```yaml
+services:
+  s3sync:
+    image: ghcr.io/jterpstra1/docker-s3sync:latest
+    restart: unless-stopped
+    volumes:
+      - /home/user:/data/user:ro
+      - /opt/files:/data/files:ro
+    environment:
+      ACCESS_KEY: AKIA...
+      SECRET_KEY: ...
+      REGION: eu-west-1
+      S3PATH: s3://my-bucket/backups
+      S3SYNCPARAMS: --delete --storage-class GLACIER_IR
+      CRON_SCHEDULE: "0 3 * * *"
+```
+
+## Settings
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `ACCESS_KEY` | yes | | AWS access key ID |
+| `SECRET_KEY` | yes | | AWS secret access key |
+| `REGION` | yes | | Region of the bucket, for example `eu-west-1` |
+| `S3PATH` | yes | | Destination bucket, optionally with a prefix: `s3://my-bucket/backups` |
+| `CRON_SCHEDULE` | no | `0 * * * *` (hourly) | When to sync, in [cron syntax](https://crontab.guru) |
+| `S3SYNCPARAMS` | no | | Extra flags for [`aws s3 sync`](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html) |
+
+Common `S3SYNCPARAMS`:
+
+- `--delete` removes objects from the bucket (under `S3PATH`) that no longer exist locally. Without it, deleted files stay in S3.
+- `--storage-class GLACIER_IR` or `STANDARD_IA` stores backups in a cheaper storage class.
+- `--exclude "*.tmp"` skips matching files. Repeat it for more patterns.
+- `--dryrun` shows what would be uploaded or deleted without doing it. Useful the first time you use `--delete`.
+
+## How it behaves
+
+- **The first sync runs on the schedule, not at startup.** With the hourly default that means up to an hour of waiting. To sync right away, run:
+
+  ```bash
+  docker exec s3sync /run.sh backup
+  ```
+
+- **Runs never overlap.** A lock file stops a new run while the previous one is still busy. The lock is removed when a run ends, also when it fails.
+- **Output goes to the container log.** Follow it with `docker logs -f s3sync`.
+- **Only changes are uploaded.** `aws s3 sync` compares size and modification time, so after the first run only new and changed files are sent.
+
+## AWS permissions
+
+Create an IAM user for the backup with only what it needs on the target bucket:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::my-bucket"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::my-bucket/*"
+    }
+  ]
+}
+```
+
+`s3:DeleteObject` is only needed when you use `--delete`.
+
+## Unraid
+
+A Community Applications template is in [jterpstra1/unraid-templates](https://github.com/jterpstra1/unraid-templates). It sets up the same container as above; add a path mapping under `/data/...` for each share you want backed up.
+
+## Docker Hub
+
+Versions up to 0.0.4 were published to Docker Hub as `jvdgt/docker-s3sync`. Those images stay available but get no updates; the arm64 build there cannot run the AWS CLI. Switch to `ghcr.io/jterpstra1/docker-s3sync`.
+
+## Releases
+
+Images are built and pushed by GitHub Actions when a `v*` tag is pushed. Pull requests are built but never pushed. Renovate keeps the base image, AWS CLI and actions up to date.

@@ -50,11 +50,12 @@ elif [[ $OPTION = "backup" ]]; then
     exit 1
   else
     touch $LOCKFILE
+    # Remove the lock however this run ends, so a failed sync doesn't block every later one
+    trap 'rm -f $LOCKFILE' EXIT
   fi
 
   echo "Executing aws s3 sync /data/ $S3PATH $S3SYNCPARAMS..." | tee -a $LOG
   /usr/local/bin/aws s3 sync /data/ $S3PATH $S3SYNCPARAMS 2>&1 | tee -a $LOG
-  rm -f $LOCKFILE
   echo "Finished copy: $(date)" | tee -a $LOG
 
 else
